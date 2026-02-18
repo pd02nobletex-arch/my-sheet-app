@@ -7,47 +7,57 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         :root { --primary: #2563eb; --bg: #f8fafc; --text: #1e293b; }
-        body { font-family: sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
         .container { max-width: 600px; margin: 0 auto; }
-        #searchInput { width: 100%; padding: 15px; border-radius: 12px; border: 1px solid #cbd5e1; margin-bottom: 15px; font-size: 16px; }
-        .card { background: white; padding: 16px; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-left: 4px solid var(--primary); }
-        .field-label { font-size: 0.75rem; font-weight: bold; color: #64748b; text-transform: uppercase; }
-        .field-value { font-size: 1rem; margin-bottom: 8px; }
+        #searchInput { width: 100%; padding: 15px; border-radius: 12px; border: 1px solid #cbd5e1; margin-bottom: 15px; font-size: 16px; width: -webkit-fill-available; }
+        .card { background: white; padding: 16px; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-left: 5px solid var(--primary); }
+        .field-label { font-size: 0.75rem; font-weight: bold; color: #64748b; text-transform: uppercase; margin-bottom: 2px; }
+        .field-value { font-size: 1rem; margin-bottom: 10px; word-break: break-word; }
+        #status { text-align: center; font-size: 0.8rem; color: #64748b; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2 style="text-align:center">My Live App</h2>
-    <p id="status" style="text-align:center; font-size: 0.8rem;">Connecting...</p>
+    <h2 style="text-align:center; margin-bottom: 5px;">My Live App</h2>
+    <div id="status">Connecting directly to Google Sheets...</div>
     <input type="text" id="searchInput" onkeyup="filterData()" placeholder="Search records...">
     <div id="dataContainer"></div>
 </div>
 
 <script>
-    // Using a proxy to bypass local browser security blocks
-    const rawSheetURL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ70NcmdpYBJVJu23vzuYf-VVfNFRYY5SuuqidanpxtqB00WZOLbpOmYoMJ8SaOoH_29eVuDYlh7Pij/pub?output=csv';
-    const proxyURL = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(rawSheetURL);
+    // Direct link to your published Google Sheet
+    const sheetURL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ70NcmdpYBJVJu23vzuYf-VVfNFRYY5SuuqidanpxtqB00WZOLbpOmYoMJ8SaOoH_29eVuDYlh7Pij/pub?output=csv';
 
     function loadData() {
-        Papa.parse(proxyURL, {
+        // We add a timestamp at the end to force Google to give us the latest data
+        const liveLink = sheetURL + '&t=' + new Date().getTime();
+
+        Papa.parse(liveLink, {
             download: true,
             header: true,
             skipEmptyLines: true,
             complete: function(results) {
                 const container = document.getElementById('dataContainer');
+                if (results.data.length === 0) {
+                    container.innerHTML = "<p style='text-align:center'>No data found in sheet.</p>";
+                    return;
+                }
+                
                 container.innerHTML = results.data.map(row => `
                     <div class="card">
                         ${Object.entries(row).map(([key, value]) => `
                             <div class="field-label">${key}</div>
-                            <div class="field-value">${value}</div>
+                            <div class="field-value">${value || '---'}</div>
                         `).join('')}
                     </div>
                 `).join('');
-                document.getElementById('status').innerText = "Syncing Active - Last Update: " + new Date().toLocaleTimeString();
+                
+                document.getElementById('status').innerText = "Last Updated: " + new Date().toLocaleTimeString();
             },
-            error: function() {
-                document.getElementById('status').innerText = "Error: Check your internet or Google Sheet link.";
+            error: function(err) {
+                document.getElementById('status').innerText = "Direct connection failed. Retrying...";
+                console.error("PapaParse Error:", err);
             }
         });
     }
@@ -60,8 +70,9 @@
         }
     }
 
+    // Load immediately and refresh every 30 seconds
     loadData();
-    setInterval(loadData, 30000); // Check for updates every 30 seconds
+    setInterval(loadData, 30000);
 </script>
 
 </body>
